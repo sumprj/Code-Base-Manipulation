@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import path from 'path';
 import _ from 'lodash';
-import {Operations, Node, RenameOperationAdderToNode, ReplaceAction} from './Model/Operations.js';
+import {Node} from './Model/Operations.js';
 import Logger from './Model/Logger.js';
 
 const jsonHashMapTree = fs.readFileSync('./Directory.json');
@@ -16,7 +16,6 @@ traverseAndPerformOperations(JSON.parse(jsonHashMapTree),false)
  */
 function traverseAndPerformOperations(treeNode,parentDirLockKey) {
     let index = 0
-    // logger.debug(treeNode);
     if(treeNode) {
         for (const key in treeNode) {
             if (Object.hasOwnProperty.call(treeNode, key)) {
@@ -24,10 +23,6 @@ function traverseAndPerformOperations(treeNode,parentDirLockKey) {
                 const currentNode = treeNode[key];
                 const dirLockKey = currentNode.location+'dir';
                 const replaceKey = currentNode.location+'replace';
-                logger.debug(key);
-                index++
-                // logger.debug(index);
-                // logger.debug(currentNode);
                 const currentNodeOperations = currentNode.operations;
 
                 if(currentNodeOperations.noOperationRequired) {
@@ -52,18 +47,21 @@ function traverseAndPerformOperations(treeNode,parentDirLockKey) {
                 }
 
                 if(currentNodeOperations.rename.required) {
-                    const timerId = setInterval(()=>{
-
-                        if((currentNode.isDirectory && !lock[dirLockKey]) || (!currentNode.isDirectory && !lock[replaceKey]))
-                        {
-                            clearInterval(timerId);
-                            renameNode(currentNode.location, currentNodeOperations.rename.newName, parentDirLockKey);
-                        }
-                        else {
-                            logger.info(`Failed to acquire lock. Rename of '${currentNode.location}' is on hold for 6 sec.`);
-                        }
-
-                    },6000)
+                    if((currentNode.isDirectory && !lock[dirLockKey]) || (!currentNode.isDirectory && !lock[replaceKey]))
+                        renameNode(currentNode.location, currentNodeOperations.rename.newName, parentDirLockKey);
+                    else{
+                        logger.info(`Failed to acquire lock for renaming of '${currentNode.location}'. Trying again... `);
+                        const timerId = setInterval(()=>{
+                            if((currentNode.isDirectory && !lock[dirLockKey]) || (!currentNode.isDirectory && !lock[replaceKey]))
+                            {
+                                clearInterval(timerId);
+                                renameNode(currentNode.location, currentNodeOperations.rename.newName, parentDirLockKey);
+                            }
+                            else {
+                                logger.info(`Failed to acquire lock for renaming of '${currentNode.location}'. Trying again... `);
+                            }
+                        },6000)
+                    }
                 }
             }
         }
@@ -79,7 +77,7 @@ function traverseAndPerformOperations(treeNode,parentDirLockKey) {
 function deleteNode(node) {
     if (node.isDirectory) {
         //TODO: do something to delete directory
-        fs.rmdir(node.location,{recursive:true}, function(err) {
+        fs.rm(node.location,{recursive:true}, function(err) {
             if(err) {
 
                 if(err.code === "ENOENT") 
@@ -134,7 +132,7 @@ function renameNode(fileOrFolderPath, newName, lockKeyToRelease) {
 /**
  * 
  * @param {String} node 
- * @param {Array<{oldString: String, newString: String}>} replaceList
+ * @param {Array<object>} replaceList
  * @param {String} lockKeyToRelease Key to release lock after completion of operationnewName
  */
 function replaceStringInFile(filePath, replaceList, lockKeyToRelease) {
@@ -147,8 +145,18 @@ function replaceStringInFile(filePath, replaceList, lockKeyToRelease) {
         }
         
         for(let i=0;i<replaceList.length; i++) {
-            const {oldString, newString} = replaceList[i];
-            data = data.replace(oldString, newString);
+            const {oldString, newString, matchWholeWord, isRegex} = replaceList[i];
+
+            let stringToSearch = oldString;
+            logger.debug(matchWholeWord);
+            if(matchWholeWord) {
+                stringToSearch = new RegExp(`\\b${oldString}\\b`,'\ig');
+            }
+            if(isRegex) {
+                stringToSearch = new RegExp(oldString,'\ig');
+            }
+            logger.debug(stringToSearch);
+            data = data.replaceAll(stringToSearch, newString);
         }
 
         fs.writeFile(filePath, data, "utf-8", (err) => {
