@@ -33,7 +33,7 @@ const fileFolderPathHeader = 'Search In';
 const rootPathHeader = 'Root Path';
 
 const rootPathSheet = workbook.Sheets[pluginSheetName];
-const renameSheet = workbook.Sheets['Rename'];
+const renameSheet = workbook.Sheets[renameSheetName];
 const replaceStringsSheet = workbook.Sheets[replaceStringsSheetName];
 const deleteSheet = workbook.Sheets[deleteSheetName];
 
@@ -62,7 +62,7 @@ const deleteSheetAsArray = xlsx.utils.sheet_to_json(deleteSheet);
 if(!rootPathSheetAsArray[0] || !rootPathSheetAsArray[0][rootPathHeader]) {
     throw new Error(`Invalid value in the spreadsheet '${spreadSheetFileName}'. Expected value in '${pluginSheetName}' sheet under '${rootPathHeader}' column!`);
 }
-const pluginRootPath = rootPathSheetAsArray[0]['Root Path'];
+const pluginRootPath = rootPathSheetAsArray[0][rootPathHeader];
 const pluginFolderName = path.basename(pluginRootPath);
 
 if(!pluginRootPath) {
@@ -125,7 +125,6 @@ function traverseBuildTree(dir)
  */
 function traverseToNodeAndAddReplaceAction(parentNodeDirectoryContent, location, actionInfo, logPrefix){
     const currentEntity = location.shift();
-    // logger.debug('currentEntity => '+currentEntity);
     
     const resultObject = {
         updatedDirectoryContent: parentNodeDirectoryContent,
@@ -150,10 +149,6 @@ function traverseToNodeAndAddReplaceAction(parentNodeDirectoryContent, location,
     }
     /* it is not the last node */
     if(!resultObject.error){
-        // console.log('Reached inside IF error');
-        // logger.debug(currentNode);
-        
-        // currentNode.operations.noOperationRequired = false;
         if(!_.isEmpty(location)){
             const childDirTraverseAndReplaceOpResult = traverseToNodeAndAddReplaceAction(currentNode.directoryContent, location, actionInfo, logPrefix);
             resultObject.error = childDirTraverseAndReplaceOpResult.error;
@@ -334,9 +329,6 @@ function validateArrayOfExtensions(extensionArray) {
 }
 
 function addAllRenameOperationToTree(tree, root, renameArray) {
-    console.log(renameArray);
-    // renameArray = [ { Path: 'CyberSource-master///ECheck', newName: 'echeck' } ];
-    // console.log(path.join(pluginRootPath, 'CyberSource-master/ECheck'));
     const pathHeader = 'Path';
     const newNameHeader = 'newName';
     let isError = false;
@@ -427,8 +419,6 @@ function traverseAndAddRenameOperationToNode(tree, pathArray, renameOperationAdd
 
 function addAllDeleteOperationsToTree(tree, root, delArray) {
     console.log(delArray);
-    // renameArray = [ { Path: 'CyberSource-master///ECheck', newName: 'echeck' } ];
-    // console.log(path.join(pluginRootPath, 'CyberSource-master/ECheck'));
     const pathHeader = 'Path';
     let isError = false;
     for(let rowIndex = 0; rowIndex<delArray.length ; rowIndex++) {
